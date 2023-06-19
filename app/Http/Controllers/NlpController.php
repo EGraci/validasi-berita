@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Hoax;
+use Illuminate\Support\Arr;
 use Sastrawi\Stemmer\StemmerFactory;
 use Sastrawi\StopWordRemover\StopWordRemoverFactory;
 use Phpml\FeatureExtraction\TfIdfTransformer;
@@ -23,19 +25,115 @@ class NlpController extends Controller
         $token2 = $this->tokenizer($artikel2);
         $token3 = $this->tokenizer($artikel3);
 
+        $tmp[] = $this->cosine_similarity($token1, $token3);
+        $tmp[] = $this->jaccard_similarity($token1, $token3);
+        $tmp[] = $this->euclidean_distance($token1, $token3);
 
         similar_text($artikel1, $artikel3, $percent);
+        // dd($token1);
+        // dd($this->cosine_similarity($token1, $token2));
+        dd($tmp);
+        // dd($this->jaccard_similarity($token1, $token2));
+        return view('Cek');
+    }
 
-        dd($this->jaccard_similarity($token1, $token2));
-        return view('Admin/DashboardSeo',[
-            'menu' =>null,
+    public function cek(Request $request){
+        $berita = $this->tokenizer($this->preprocessing($request->berita));
+        $hoax = Hoax::all();
+        $hasil = null;
+        $log = array();
+        foreach($hoax as $data){
+            $tmp = $this->jaccard_similarity($berita, json_decode($data->hoax));
+            $log[]= $tmp;
+            if($hasil === null || $hasil < $tmp){
+                $hasil = $tmp;
+            }
+        }
+        if($tmp >= 1){
+            $hasil = 100;
+        }else{
+            $hasil = round($tmp*100);
+        }
+        // dd($hasil);
+        return view('Hasil',[
+            'berita' =>$request->berita,
+            'hoax' => $hasil,
+            'asli' => (100 - $hasil),
         ]);
     }
-    public function jaccard_similarity($set1, $set2) {
-        $intersection = count(array_intersect($set1, $set2));
-        $union = count(array_unique(array_merge($set1, $set2)));
-        $similarity = $intersection / $union;
-        return $similarity;
+    public function hoax(){
+        return view('Hoax');
+    }
+    public function simpan(Request $request){
+        $berita = $this->tokenizer($this->preprocessing($request->berita));
+        $hoax = new Hoax();
+        $hoax->hoax = json_encode($berita);
+        $hoax->save();
+        return redirect('/hoax')->with('msg', 'Berhasil Simpan');;
+    }
+
+    public function cosine_similarity($utama, $pembanding){
+        $a = 0;
+        $b = 0;
+        $ab = 0;
+
+        $set =  array_unique($utama);
+        $tmp = array_count_values($utama);
+        $tmp1 = array_count_values($pembanding);
+        
+        // bow
+        foreach($set as $raw){
+            $a += pow($tmp[$raw], 2);
+            if(isset($tmp1[$raw])){
+                $b += pow($tmp1[$raw],2);
+                $ab += ($tmp[$raw] * $tmp1[$raw]);
+            }else{
+                $b += pow(0,2);
+                $ab += 0;
+            }
+        }
+        return $ab / (abs(sqrt($a)) * abs(sqrt($b)));
+    }
+    public function euclidean_distance($utama, $pembanding){
+        $qp = 0;
+
+        $set =  array_unique($utama);
+        $tmp = array_count_values($utama);
+        $tmp1 = array_count_values($pembanding);
+        
+        foreach($set as $raw){
+            // $kata[0][] = $tmp[$raw];
+            if(isset($tmp1[$raw])){
+               $qp += pow(($tmp[$raw] - $tmp1[$raw]), 2);
+                // $kata[1][] = $tmp1[$raw];
+            }else{
+               $qp += pow(($tmp[$raw] - 0), 2);
+                // $kata[1][] = 0;
+            }
+        }
+        return sqrt($qp);
+    }
+    public function tf_idf($utama, $pembanding)
+    {
+        $set =  array_unique($utama);
+        $tmp = array_count_values($utama);
+        $tmp1 = array_count_values($pembanding);
+        
+        foreach($set as $raw){
+            $kata[0][] = $tmp[$raw];
+            if(isset($tmp1[$raw])){
+                $kata[1][] = $tmp1[$raw];
+            }else{
+                $kata[1][] = 0;
+            }
+        }
+        return 0;
+    }
+
+    public function jaccard_similarity($utama, $pembanding) {
+        $jmlKataSama = count(array_intersect($utama, $pembanding));
+        $jmlGabunganKata = count(array_unique(array_merge($utama, $pembanding)));
+        return $jmlKataSama/ $jmlGabunganKata;
     }
 
     public function preprocessing($artikel){
@@ -45,6 +143,7 @@ class NlpController extends Controller
         // cleaning
         $artikel = strtolower($artikel);
         $artikel = preg_replace("/[^a-zA-Z0-9\s]/", "", $artikel);
+        $artikel = preg_replace("/\d+/u", "", $artikel);
         $artikel = preg_replace('/\s+/', ' ', $artikel);
 
         // stopword with satrawati

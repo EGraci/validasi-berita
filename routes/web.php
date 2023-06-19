@@ -15,3 +15,9 @@ use App\Http\Controllers\NlpController;
 */
 
 Route::get('/', [NlpController::class, 'index']);
+Route::post('/cek/', [NlpController::class, 'cek']);
+Route::get('/hasil/', [NlpController::class, 'cek']);
+Route::get('/hoax/', [NlpController::class, 'hoax']);
+Route::post('/hoax/', [NlpController::class, 'simpan']);
+
+
