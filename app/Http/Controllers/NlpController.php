@@ -162,6 +162,7 @@ class NlpController extends Controller
         $token = array();
         $kata = explode(" ", $artikel);
         foreach ($kata as $data) {
+            if($data === ''){continue;}
             // array_push($token, $stemmer->stem($data));
             $token[] = $data;
         }
