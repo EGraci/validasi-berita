@@ -21,6 +21,8 @@ class NlpController extends Controller
         $artikel2 = $this->preprocessing($artikel2);
         $artikel3 = $this->preprocessing($artikel3);
 
+        $hoax = Hoax::all();
+
         $token1 = $this->tokenizer($artikel1);
         $token2 = $this->tokenizer($artikel2);
         $token3 = $this->tokenizer($artikel3);
@@ -28,6 +30,9 @@ class NlpController extends Controller
         $tmp[] = $this->cosine_similarity($token1, $token3);
         $tmp[] = $this->jaccard_similarity($token1, $token3);
         $tmp[] = $this->euclidean_distance($token1, $token3);
+        $tmp[] = $this->tf();
+        $tmp[] = $this->idf();
+
 
         similar_text($artikel1, $artikel3, $percent);
         // dd($token1);
@@ -54,7 +59,7 @@ class NlpController extends Controller
         }else{
             $hasil = round($tmp*100);
         }
-        // dd($hasil);
+        dd($hasil);
         return view('Hasil',[
             'berita' =>$request->berita,
             'hoax' => $hasil,
